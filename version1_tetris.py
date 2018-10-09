@@ -9,12 +9,41 @@ UNIT = 30  # 픽셀 수
 HEIGHT = 20  # 그리드 세로
 WIDTH = 8   # 그리드 가로
 MID = (WIDTH / 2 - 1) * UNIT # 블록 시작 점
-dy = [UNIT, 0, 0]       # action에 해당하는 y좌표 plus값
-dx = [0, UNIT, -UNIT]   # action에 해당하는 y좌표 plus값
+dy = [UNIT, 0, 0]       # 아래, 왼쪽, 오른쪽
+dx = [0, UNIT, -UNIT]   
 PLUS_SCORE = 10.0
 basic_counter_str = 'Test : '
 basic_score_str = 'Score : '
 
+
+#   [x, y]
+
+         # 네모 테트로미노
+pos = [[[[MID, 0], [MID + UNIT, 0], [MID, 0 + UNIT], [MID + UNIT, 0 + UNIT]]],                      
+         # 일직선 테트로미노
+      [[[MID - UNIT * 2, 0], [MID - UNIT, 0], [MID, 0], [MID + UNIT, 0]],
+       [[MID, UNIT * 2], [MID, UNIT], [MID, 0], [MID, -UNIT]]],                      
+         # 'ㄴ' 모양 테트로미노
+      [[[MID, -UNIT], [MID, 0], [MID, UNIT], [MID + UNIT, UNIT]],
+       [[MID + UNIT, 0], [MID, 0], [MID - UNIT, 0], [MID - UNIT, UNIT]],
+       [[MID, UNIT], [MID, 0], [MID, -UNIT], [MID - UNIT, -UNIT]],
+       [[MID - UNIT, 0], [MID, 0], [MID + UNIT, 0], [MID + UNIT, -UNIT]]],                
+         # 지그재그 모양 테트로미노
+      [[[MID, -UNIT], [MID, 0], [MID + UNIT, 0], [MID + UNIT, UNIT]],
+       [[MID + UNIT, 0], [MID, 0], [MID, UNIT], [MID - UNIT, UNIT]]],           
+         # 'ㅜ' 모양 테트로미노
+      [[[MID - UNIT, 0], [MID, 0], [MID + UNIT, 0], [MID, UNIT]],
+       [[MID, -UNIT], [MID, 0], [MID, UNIT], [MID - UNIT, 0]],
+       [[MID + UNIT, 0], [MID, 0], [MID - UNIT, 0], [MID, -UNIT]],
+       [[MID, UNIT], [MID, 0], [MID, -UNIT], [MID + UNIT, 0]]],]    
+         # 네모 테트로미노
+
+#pos = [
+#         # 'ㅜ' 모양 테트로미노
+#      [[[MID - UNIT, 0], [MID, 0], [MID + UNIT, 0], [MID, UNIT]],
+#       [[MID, -UNIT], [MID, 0], [MID, UNIT], [MID - UNIT, 0]],
+#       [[MID + UNIT, 0], [MID, 0], [MID - UNIT, 0], [MID, -UNIT]],
+#       [[MID, UNIT], [MID, 0], [MID, -UNIT], [MID + UNIT, 0]]]]    
 
 class Env(tk.Tk):
     def __init__(self):
@@ -27,12 +56,13 @@ class Env(tk.Tk):
                 self.score_weight.append(0.0)
             else:
                 self.score_weight.append((i-2)*(i-2)*0.00082976)
-        self.action_space = ['d', 'l', 'r']
-        self.action_size = len(self.action_space)
+
         self.color = ["red","blue","green","yellow","purple"]
-        self.block_kind = len(self.color)
+        self.block_kind = len(pos)
+        self.block = list()
 
         self.curr_block = np.random.randint(self.block_kind)
+        self.curr_block_type = np.random.randint(len(pos[self.curr_block]))
         self.canvas, self.counter_board, self.score_board = self._build_canvas()
         self.map = [[0]*WIDTH for _ in range(HEIGHT)]
 
@@ -131,13 +161,7 @@ class Env(tk.Tk):
         return canvas,counter_board,score_board
 
     def make_block(self):
-        x, y = MID, 0
-        pos = [[[x, y], [x + UNIT, y], [x, y + UNIT], [x + UNIT, y + UNIT]],                       # 네모 테트로미노
-               [[x, y], [x + UNIT, y], [x + UNIT * 2, y], [x + UNIT * 3, y]],                      # 일직선 테트로미노
-               [[x, y], [x, y + UNIT], [x, y + UNIT * 2], [x + UNIT, y + UNIT * 2]],               # 'ㄴ' 모양 테트로미노
-               [[x, y], [x, y + UNIT], [x + UNIT, y + UNIT], [x + UNIT, y + UNIT * 2]],            # 지그재그 모양 테트로미노
-               [[x, y], [x + UNIT, y], [x + UNIT * 2, y], [x + UNIT, y + UNIT]],]                  # 'ㅜ' 모양 테트로미노    
-        return pos[self.curr_block]
+        return pos[self.curr_block][self.curr_block_type]
 
     def reset(self):
         self.score = 0.0
@@ -153,16 +177,24 @@ class Env(tk.Tk):
 
     def step(self, action):
         self.render()
-        reward = self.move(action)
+       
+        reward = float
+        if action < 3:
+            reward = self.move(action)
+        else:
+            reward = self.rotate(action)
         if reward >= 0.00000:
             # make new block!
             self.curr_block = np.random.randint(self.block_kind)
+            self.curr_block_type = np.random.randint(len(pos[self.curr_block]))
             self._add_canvas()
         self.canvas.tag_raise(self.block)
         if reward < 0.00000:
             return 0.0
         else:
             return reward
+
+
 
     def possible_to_move(self, action):
         for n in range(len(self.block)):
@@ -239,8 +271,42 @@ class Env(tk.Tk):
             for n in range(4):
                 self.canvas.move(self.block[n], base_action[0], base_action[1])
 
-        self.canvas.coords(self.block)
+        #self.canvas.coords(self.block)
         return -1.0
+
+    def possible_to_rotate(self, next_block):
+        for i in range(len(self.block)):
+            y = int(next_block[i][1] / UNIT)
+            x = int(next_block[i][0] / UNIT)
+            if y < 0 or y >= HEIGHT or x < 0 or x >= WIDTH or self.map[y][x] == 1:
+                return False
+        return True
+
+    def rotate(self, dir):
+        ret = 0.0
+
+        dir = (1 if dir == 3 else 3)
+        next_block = [[0]*2 for _ in range(len(self.block))]
+        curr_size = len(pos[self.curr_block])
+        for i in range(len(self.block)):
+            s = self.canvas.coords(self.block[i])
+            # y
+            next_block[i][1] = s[1] + pos[self.curr_block][(self.curr_block_type + dir) % curr_size][i][1] - pos[self.curr_block][self.curr_block_type][i][1]
+            # x
+            next_block[i][0] = s[0] + pos[self.curr_block][(self.curr_block_type + dir) % curr_size][i][0] - pos[self.curr_block][self.curr_block_type][i][0]
+            
+        if self.possible_to_rotate(next_block) == False:
+            for i in range(len(self.block)):
+                s = self.canvas.coords(self.block[i])
+            return -1.
+
+        for i in range(len(self.block)):
+            self.canvas.move(self.block[i], 
+                             pos[self.curr_block][(self.curr_block_type + dir) % curr_size][i][0] - pos[self.curr_block][self.curr_block_type][i][0], 
+                             pos[self.curr_block][(self.curr_block_type + dir) % curr_size][i][1] - pos[self.curr_block][self.curr_block_type][i][1])
+        self.curr_block_type = (self.curr_block_type + dir) % curr_size
+        return -1.
+        
 
     def is_game_end(self):
         for n in range(3):
